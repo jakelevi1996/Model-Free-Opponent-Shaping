@@ -110,6 +110,23 @@ def chicken_game_batch(batch_size=128):
     return dims, Ls
 
 
+def awkward_game_batch(batch_size=128):
+    dims = [1, 1]
+    payout_mat_1 = torch.Tensor([[3, 1], [2, 4]]).to(device)
+    payout_mat_2 = torch.Tensor([[1, 3], [5, 2]]).to(device)
+    payout_mat_1 = payout_mat_1.reshape((1, 2, 2)).repeat(batch_size, 1, 1)
+    payout_mat_2 = payout_mat_2.reshape((1, 2, 2)).repeat(batch_size, 1, 1)
+
+    def Ls(th):
+        p_1, p_2 = torch.sigmoid(th[0]), torch.sigmoid(th[1])
+        x, y = torch.cat([p_1, 1 - p_1], dim=-1), torch.cat([p_2, 1 - p_2], dim=-1)
+        L_1 = -torch.matmul(torch.matmul(x.unsqueeze(1), payout_mat_1), y.unsqueeze(-1))
+        L_2 = -torch.matmul(torch.matmul(x.unsqueeze(1), payout_mat_2), y.unsqueeze(-1))
+        return [L_1.squeeze(-1), L_2.squeeze(-1), None]
+
+    return dims, Ls
+
+
 def generate_mamaml(b, d, inner_env, game, inner_lr=1):
     """
     This is an improved version of the algorithm presented in this paper:
