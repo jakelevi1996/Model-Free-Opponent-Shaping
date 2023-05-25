@@ -251,6 +251,22 @@ class MetaGames:
                 self.inner_th_ba = inner_th_ba
                 th_ba = [self.inner_th_ba, outer_th_ba.detach()]
                 l1, l2, M = self.game_batched(th_ba)
+        elif self.opponent == "TFT":
+            tft = 10 * torch.tensor([1, 1, -1, 1, -1], dtype=torch.float32)
+            self.inner_th_ba = torch.tile(tft, [self.b, 1]).to(device)
+            th_ba = [self.inner_th_ba, outer_th_ba.detach()]
+            l1, l2, M = self.game_batched(th_ba)
+        elif self.opponent == "ALLC":
+            self.inner_th_ba = 10 * torch.ones([self.b, self.d], dtype=torch.float32).to(device)
+            th_ba = [self.inner_th_ba, outer_th_ba.detach()]
+            l1, l2, M = self.game_batched(th_ba)
+        elif self.opponent == "ALLD":
+            self.inner_th_ba = -10 * torch.ones([self.b, self.d], dtype=torch.float32).to(device)
+            th_ba = [self.inner_th_ba, outer_th_ba.detach()]
+            l1, l2, M = self.game_batched(th_ba)
+        elif self.opponent == "random_static":
+            th_ba = [self.inner_th_ba, outer_th_ba.detach()]
+            l1, l2, M = self.game_batched(th_ba)
         else:
             raise NotImplementedError
 
