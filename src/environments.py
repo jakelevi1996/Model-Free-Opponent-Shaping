@@ -8,8 +8,9 @@ def ipd_batched(bs, gamma_inner=0.96):
     dims = [5, 5]
     payout_mat_1 = torch.Tensor([[-1, -3], [0, -2]]).to(device)
     payout_mat_2 = payout_mat_1.T
-    payout_mat_1 = payout_mat_1.reshape((1, 2, 2)).repeat(bs, 1, 1).to(device)
-    payout_mat_2 = payout_mat_2.reshape((1, 2, 2)).repeat(bs, 1, 1).to(device)
+    payout_mat_1 = payout_mat_1.reshape((1, 2, 2)).to(device)
+    payout_mat_2 = payout_mat_2.reshape((1, 2, 2)).to(device)
+    I = torch.eye(4).to(device)
 
     def Ls(th):  # th is a list of two different tensors. First one is first agent? tnesor size is List[Tensor(bs, 5), Tensor(bs,5)].
         p_1_0 = torch.sigmoid(th[0][:, 0:1])
@@ -19,9 +20,9 @@ def ipd_batched(bs, gamma_inner=0.96):
         p_2 = torch.reshape(torch.sigmoid(torch.cat([th[1][:, 1:2], th[1][:, 3:4], th[1][:, 2:3], th[1][:, 4:5]], dim=-1)), (bs, 4, 1))
         P = torch.cat([p_1 * p_2, p_1 * (1 - p_2), (1 - p_1) * p_2, (1 - p_1) * (1 - p_2)], dim=-1)
 
-        M = torch.matmul(p.unsqueeze(1), torch.inverse(torch.eye(4).to(device) - gamma_inner * P))
-        L_1 = -torch.matmul(M, torch.reshape(payout_mat_1, (bs, 4, 1)))
-        L_2 = -torch.matmul(M, torch.reshape(payout_mat_2, (bs, 4, 1)))
+        M = torch.matmul(p.unsqueeze(1), torch.inverse(I - gamma_inner * P))
+        L_1 = -torch.matmul(M, payout_mat_1.reshape(1, 4, 1))
+        L_2 = -torch.matmul(M, payout_mat_2.reshape(1, 4, 1))
 
         return [L_1.squeeze(-1), L_2.squeeze(-1), M]
 
