@@ -188,6 +188,14 @@ class MetaGames:
             d, self.game_batched = chicken_game_batch(b)
             self.std = 1
             self.lr = 1
+        elif self.game == "matching_pennies":
+            d, self.game_batched = matching_pennies_batch(b)
+            self.std = 1
+            self.lr = 1
+        elif self.game == "awkward":
+            d, self.game_batched = awkward_game_batch(b)
+            self.std = 1
+            self.lr = 1
         else:
             raise NotImplementedError
         self.d = d[0]
