@@ -275,6 +275,12 @@ class SymmetricMetaGames:
         elif self.game == "chicken":
             d, self.game_batched = chicken_game_batch(b)
             self.std = 1
+        elif self.game == "matching_pennies":
+            d, self.game_batched = matching_pennies_batch(b)
+            self.std = 1
+        elif self.game == "awkward":
+            d, self.game_batched = awkward_game_batch(b)
+            self.std = 1
         else:
             raise NotImplementedError
 
@@ -330,6 +336,14 @@ class NonMfosMetaGames:
             d, self.game_batched = chicken_game_batch(b)
             self.std = 1
             self.lr = 1
+        elif self.game == "matching_pennies":
+            d, self.game_batched = matching_pennies_batch(b)
+            self.std = 1
+            self.lr = 0.1
+        elif self.game == "awkward":
+            d, self.game_batched = awkward_game_batch(b)
+            self.std = 1
+            self.lr = 0.1
         else:
             raise NotImplementedError
 
