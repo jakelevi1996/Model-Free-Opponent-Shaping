@@ -88,7 +88,7 @@ def matching_pennies_batch(batch_size=128):
         x, y = torch.cat([p_1, 1 - p_1], dim=-1), torch.cat([p_2, 1 - p_2], dim=-1)
         L_1 = torch.matmul(torch.matmul(x.unsqueeze(1), payout_mat_1), y.unsqueeze(-1))
         L_2 = torch.matmul(torch.matmul(x.unsqueeze(1), payout_mat_2), y.unsqueeze(-1))
-        return [L_1.squeeze(-1), L_2.squeeze(-1)]
+        return [L_1.squeeze(-1), L_2.squeeze(-1), None]
 
     return dims, Ls
 
