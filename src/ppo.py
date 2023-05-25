@@ -21,8 +21,17 @@ class Memory:
 
 
 class ActorCritic(nn.Module):
-    def __init__(self, state_dim, action_dim):
+    def __init__(self, state_dim, action_dim, varpar=False):
         super(ActorCritic, self).__init__()
+        self.varpar = varpar
+        if varpar:
+            self.actor = nn.Sequential(
+                nn.Linear(state_dim, 256),
+                nn.Tanh(),
+                nn.Linear(256, action_dim),
+            )
+            self.variance = torch.nn.Parameter(torch.ones(action_dim, dtype=torch.float32))
+        else:
         self.actor = nn.Sequential(
             nn.Linear(state_dim, 256),
             nn.Tanh(),
@@ -43,6 +52,10 @@ class ActorCritic(nn.Module):
         raise NotImplementedError
 
     def act(self, state, memory):
+        if self.varpar:
+            action_mean = self.actor(state)
+            action_var = self.variance
+        else:
         action_mean, action_var = torch.split(self.actor(state), self.action_dim, dim=-1)
         cov_mat = torch.diag_embed(F.softplus(action_var))
 
@@ -59,6 +72,10 @@ class ActorCritic(nn.Module):
 
     def sample(self, state, mean=False):
         with torch.no_grad():
+            if self.varpar:
+                action_mean = self.actor(state)
+                action_var = self.variance
+            else:
             action_mean, action_var = torch.split(self.actor(state), self.action_dim, dim=-1)
             cov_mat = torch.diag_embed(F.softplus(action_var))
 
@@ -71,6 +88,10 @@ class ActorCritic(nn.Module):
         return action.detach()
 
     def evaluate(self, state, action):
+        if self.varpar:
+            action_mean = self.actor(state)
+            action_var = self.variance
+        else:
         action_mean, action_var = torch.split(self.actor(state), self.action_dim, dim=-1)
         action_var = F.softplus(action_var)
 
