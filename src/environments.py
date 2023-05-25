@@ -164,7 +164,7 @@ def generate_mamaml(b, d, inner_env, game, inner_lr=1):
 
 
 class MetaGames:
-    def __init__(self, b, opponent="NL", game="IPD", mmapg_id=0):
+    def __init__(self, b, opponent="NL", game="IPD", mmapg_id=0, offset_action=False):
         """
         Opponent can be:
         NL = Naive Learner (gradient updates through environment).
@@ -208,11 +208,15 @@ class MetaGames:
         else:
             self.init_th_ba = None
 
+        self.offset_action = offset_action
+
     def reset(self, info=False):
         if self.init_th_ba is not None:
             self.inner_th_ba = self.init_th_ba.detach() * torch.ones((self.b, self.d), requires_grad=True).to(device)
         else:
             self.inner_th_ba = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(device)
+        if self.offset_action:
+            self.outer_th_ba_offset = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(device)
         outer_th_ba = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(device)
         state, _, _, M = self.step(outer_th_ba)
         if info:
@@ -223,11 +227,21 @@ class MetaGames:
     def step(self, outer_th_ba):
         last_inner_th_ba = self.inner_th_ba.detach().clone()
         if self.opponent == "NL" or self.opponent == "MAMAML":
-            th_ba = [self.inner_th_ba, outer_th_ba.detach()]
+            if self.offset_action:
+                with torch.no_grad():
+                    self.outer_th_ba_offset += outer_th_ba.detach()
+                th_ba = [self.inner_th_ba, self.outer_th_ba_offset]
+            else:
+                th_ba = [self.inner_th_ba, outer_th_ba.detach()]
             l1, l2, M = self.game_batched(th_ba)
             grad = get_gradient(l1.sum(), self.inner_th_ba)
+            if self.offset_action:
+                outer_th_ba = self.outer_th_ba_offset.detach().clone()
+                grad_outer = get_gradient(l2.sum(), self.outer_th_ba_offset)
             with torch.no_grad():
                 self.inner_th_ba -= grad * self.lr
+                if self.offset_action:
+                    self.outer_th_ba_offset -= grad_outer * self.lr
         elif self.opponent == "LOLA":
             th_ba = [self.inner_th_ba, outer_th_ba.detach()]
             th_ba[1].requires_grad = True
@@ -277,7 +291,7 @@ class MetaGames:
 
 
 class SymmetricMetaGames:
-    def __init__(self, b, game="IPD"):
+    def __init__(self, b, game="IPD", offset_action=False):
         self.gamma_inner = 0.96
 
         self.b = b
@@ -302,9 +316,17 @@ class SymmetricMetaGames:
 
         self.d = d[0]
 
+        self.offset_action = offset_action
+
     def reset(self, info=False):
-        p_ba_0 = torch.nn.init.normal_(torch.empty((self.b, self.d)), std=self.std).to(device)
-        p_ba_1 = torch.nn.init.normal_(torch.empty((self.b, self.d)), std=self.std).to(device)
+        if self.offset_action:
+            self.p_ba_0_offset = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(device)
+            self.p_ba_1_offset = torch.nn.init.normal_(torch.empty((self.b, self.d), requires_grad=True), std=self.std).to(device)
+            p_ba_0 = self.p_ba_0_offset
+            p_ba_1 = self.p_ba_1_offset
+        else:
+            p_ba_0 = torch.nn.init.normal_(torch.empty((self.b, self.d)), std=self.std).to(device)
+            p_ba_1 = torch.nn.init.normal_(torch.empty((self.b, self.d)), std=self.std).to(device)
         state_0 = torch.sigmoid(torch.cat((p_ba_0.detach(), p_ba_1.detach()), dim=-1))
         state_1 = torch.sigmoid(torch.cat((p_ba_1.detach(), p_ba_0.detach()), dim=-1))
 
@@ -315,13 +337,29 @@ class SymmetricMetaGames:
             return [state_0, state_1]
 
     def step(self, p_ba_0, p_ba_1):
-        th_ba = [p_ba_0.detach(), p_ba_1.detach()]
+        if self.offset_action:
+            with torch.no_grad():
+                self.p_ba_0_offset += p_ba_0.detach()
+                self.p_ba_1_offset += p_ba_1.detach()
+            th_ba = [self.p_ba_0_offset, self.p_ba_1_offset]
+        else:
+            th_ba = [p_ba_0.detach(), p_ba_1.detach()]
         l1, l2, M = self.game_batched(th_ba)
+
+        if self.offset_action:
+            p_ba_0 = self.p_ba_0_offset.detach().clone()
+            p_ba_1 = self.p_ba_1_offset.detach().clone()
+            grad_0 = get_gradient(l1.sum(), self.p_ba_0_offset)
+            grad_1 = get_gradient(l2.sum(), self.p_ba_1_offset)
+            with torch.no_grad():
+                self.p_ba_0_offset -= grad_0
+                self.p_ba_1_offset -= grad_1
+
         state_0 = torch.sigmoid(torch.cat((p_ba_0.detach(), p_ba_1.detach()), dim=-1))
         state_1 = torch.sigmoid(torch.cat((p_ba_1.detach(), p_ba_0.detach()), dim=-1))
 
         if self.game == "IPD" or self.game == "IMP":
-            return [state_0, state_1], [-l1 * (1 - self.gamma_inner), -l2 * (1 - self.gamma_inner)], M
+            return [state_0, state_1], [-l1.detach() * (1 - self.gamma_inner), -l2.detach() * (1 - self.gamma_inner)], M
         else:
             return [state_0, state_1], [-l1.detach(), -l2.detach()], M
 
