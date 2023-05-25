@@ -14,6 +14,9 @@ class Memory:
         self.rewards = []
 
     def clear_memory(self):
+        for x in [self.actions, self.states, self.logprobs, self.rewards]:
+            while len(x) > 0:
+                del x[0]
         del self.actions[:]
         del self.states[:]
         del self.logprobs[:]
