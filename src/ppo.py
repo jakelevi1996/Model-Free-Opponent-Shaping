@@ -32,11 +32,11 @@ class ActorCritic(nn.Module):
             )
             self.variance = torch.nn.Parameter(torch.ones(action_dim, dtype=torch.float32))
         else:
-        self.actor = nn.Sequential(
-            nn.Linear(state_dim, 256),
-            nn.Tanh(),
-            nn.Linear(256, action_dim * 2),
-        )
+            self.actor = nn.Sequential(
+                nn.Linear(state_dim, 256),
+                nn.Tanh(),
+                nn.Linear(256, action_dim * 2),
+            )
 
         # critic
         self.critic = nn.Sequential(
@@ -56,7 +56,7 @@ class ActorCritic(nn.Module):
             action_mean = self.actor(state)
             action_var = self.variance
         else:
-        action_mean, action_var = torch.split(self.actor(state), self.action_dim, dim=-1)
+            action_mean, action_var = torch.split(self.actor(state), self.action_dim, dim=-1)
         cov_mat = torch.diag_embed(F.softplus(action_var))
 
         dist = MultivariateNormal(action_mean, cov_mat)
@@ -76,7 +76,7 @@ class ActorCritic(nn.Module):
                 action_mean = self.actor(state)
                 action_var = self.variance
             else:
-            action_mean, action_var = torch.split(self.actor(state), self.action_dim, dim=-1)
+                action_mean, action_var = torch.split(self.actor(state), self.action_dim, dim=-1)
             cov_mat = torch.diag_embed(F.softplus(action_var))
 
             dist = MultivariateNormal(action_mean, cov_mat)
@@ -92,7 +92,7 @@ class ActorCritic(nn.Module):
             action_mean = self.actor(state)
             action_var = self.variance
         else:
-        action_mean, action_var = torch.split(self.actor(state), self.action_dim, dim=-1)
+            action_mean, action_var = torch.split(self.actor(state), self.action_dim, dim=-1)
         action_var = F.softplus(action_var)
 
         #         action_var = self.action_var.expand_as(action_mean)
@@ -183,25 +183,25 @@ class GruAC(nn.Module):
 
 
 class PPO:
-    def __init__(self, state_dim, action_dim, lr, betas, gamma, K_epochs, eps_clip, entropy):
+    def __init__(self, state_dim, action_dim, lr, betas, gamma, K_epochs, eps_clip, entropy, varpar=False, recurrent=False):
         self.lr = lr
         self.betas = betas
         self.gamma = gamma
         self.eps_clip = eps_clip
         self.K_epochs = K_epochs
 
-        self.policy = ActorCritic(state_dim, action_dim).to(device)
+        if recurrent:
+            self.policy = GruAC(state_dim, action_dim).to(device)
+        else:
+            self.policy = ActorCritic(state_dim, action_dim, varpar).to(device)
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=lr, betas=betas)
-
-        self.policy_old = ActorCritic(state_dim, action_dim).to(device)
-        self.policy_old.load_state_dict(self.policy.state_dict())
 
         self.MseLoss = nn.MSELoss()
         self.entropy_bonus = entropy
 
     def select_action(self, state, memory):
         state = torch.FloatTensor(state.reshape(1, -1)).to(device)
-        return self.policy_old.act(state, memory).cpu().data.numpy().flatten()
+        return self.policy.act(state, memory).cpu().data.numpy().flatten()
 
     def update(self, memory):
         # Monte Carlo estimate of rewards:
@@ -239,8 +239,6 @@ class PPO:
             loss.mean().backward()
             self.optimizer.step()
 
-        # Copy new weights into old policy:
-        self.policy_old.load_state_dict(self.policy.state_dict())
 
     def save(self, filename):
         torch.save(
@@ -254,5 +252,4 @@ class PPO:
     def load(self, filename):
         checkpoint = torch.load(filename)
         self.policy.load_state_dict(checkpoint["actor_critic"])
-        self.policy_old.load_state_dict(checkpoint["actor_critic"])
         self.optimizer.load_state_dict(checkpoint["optimizer"])
