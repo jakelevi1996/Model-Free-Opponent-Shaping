@@ -161,3 +161,24 @@ class PPO:
         self.policy.load_state_dict(checkpoint["actor_critic"])
         self.policy_old.load_state_dict(checkpoint["actor_critic"])
         self.optimizer.load_state_dict(checkpoint["optimizer"])
+
+class PpoNaiveInit(PPO):
+    def naivify(self, batch_size):
+        """ Initialise PPO to output ~ zero mean and variance """
+        with torch.no_grad():
+            self.policy.actor[-1].weight *= 1e-3
+            self.policy.actor[-1].bias[:5] *= 1e-3
+            # self.policy.actor[-1].bias[5:] -= 10
+            self.policy.actor[-1].bias[5:] -= 1
+
+            self.policy_old.load_state_dict(self.policy.state_dict())
+
+        self.action_offset = torch.nn.init.normal_(torch.empty((batch_size, 5), requires_grad=True), std=1.0).to(device)
+        self.action_offset.detach_().requires_grad_(True)
+        self.action_offset.sum().backward() # initialise gradient
+
+    def update_action_offset(self, reward):
+        self.action_offset.grad.zero_()
+        reward.sum().backward()
+        with torch.no_grad():
+            self.action_offset += self.action_offset.grad
