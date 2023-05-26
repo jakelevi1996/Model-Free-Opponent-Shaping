@@ -5,11 +5,11 @@ import argparse
 from environments import NonMfosMetaGames
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--exp-name", type=str, default="")
+parser.add_argument("--exp-name", type=str, default="runs/non_mfos")
 args = parser.parse_args()
 
 if __name__ == "__main__":
-    batch_size = 8192
+    batch_size = 100
     num_steps = 100
     name = args.exp_name
 
@@ -20,9 +20,9 @@ if __name__ == "__main__":
             json.dump(args.__dict__, f, indent=2)
 
     results = []
-    for game in ["IPD", "IMP", "chicken"]:
-        for p1 in ["STATIC", "NL", "LOLA", "MAMAML"]:
-            for p2 in ["STATIC", "NL", "LOLA", "MAMAML"]:
+    for game in ["chicken"]:
+        for p1 in ["LOLA"]:
+            for p2 in ["LOLA"]:
                 if p1 == "MAMAML" or p2 == "MAMAML":
                     for id in range(10):
                         env = NonMfosMetaGames(batch_size, game=game, p1=p1, p2=p2, mmapg_id=id)
