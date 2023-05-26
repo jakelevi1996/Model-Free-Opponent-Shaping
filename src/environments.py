@@ -224,7 +224,7 @@ class MetaGames:
         else:
             return state
 
-    def step(self, outer_th_ba):
+    def step(self, outer_th_ba, detach_rewards=True, detach_actions=True):
         last_inner_th_ba = self.inner_th_ba.detach().clone()
         if self.opponent == "NL" or self.opponent == "MAMAML":
             if self.offset_action:
@@ -285,7 +285,10 @@ class MetaGames:
             raise NotImplementedError
 
         if self.game == "IPD" or self.game == "IMP":
-            return torch.sigmoid(torch.cat((outer_th_ba, last_inner_th_ba), dim=-1)).detach(), (-l2 * (1 - self.gamma_inner)).detach(), (-l1 * (1 - self.gamma_inner)).detach(), M
+            if detach_rewards:
+                return torch.sigmoid(torch.cat((outer_th_ba, last_inner_th_ba), dim=-1)).detach(), (-l2 * (1 - self.gamma_inner)).detach(), (-l1 * (1 - self.gamma_inner)).detach(), M
+            else:
+                return torch.sigmoid(torch.cat((outer_th_ba, last_inner_th_ba), dim=-1)).detach(), (-l2 * (1 - self.gamma_inner)), (-l1 * (1 - self.gamma_inner)), M
         else:
             return torch.sigmoid(torch.cat((outer_th_ba, last_inner_th_ba), dim=-1)).detach(), -l2.detach(), -l1.detach(), M
 
